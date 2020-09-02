@@ -9,6 +9,9 @@ $example = [
     'git' => [
         'branch_regex' => '/^(f|b)-(\d+)-(.+)/',
         'commit_regex' => '/^(\d+)( |-|_)(.+)/',
+        'default_commit' => function ($branchName) {
+            return preg_replace('/^.-/', '', $branchName);
+        }
     ]
 ];
 
@@ -21,5 +24,8 @@ return [
     'git' => [
         'branch_regex' => '/^(f|b)-(\d+)-(.+)/',
         'commit_regex' => '/^(\d+)( |-|_)(.+)/',
+        'default_commit' => function ($branchName) {
+            return preg_replace('/^.-/', '', $branchName);
+        }
     ]
 ];
