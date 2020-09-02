@@ -147,21 +147,32 @@ function pc()
 /**
  * Добавляет все файлы в гит и пушит их
  *
+ * Флаги:
+ * -f => форсированный коммит, имя коммита не будет проверятся
+ * -pr => открывает страницу создания Pull Request @see gpr()
+ *
  * @param string $commit - сообщение коммита
  */
 function gp(string $commit)
 {
     global $config;
+    $args = func_get_args();
+    $forceCommit = in_array('-f', $args);
+    $openPullRequest = in_array('-pr', $args);
 
-    if (isset($config['git']['commit_regex']) && !preg_match($config['git']['commit_regex'], $commit)) {
+    if (!$forceCommit && isset($config['git']['commit_regex']) && !preg_match($config['git']['commit_regex'], $commit)) {
         echo 'Please enter commit message in the format: ' . $config['git']['commit_regex'];
         exit();
     }
 
-    echo `git add *`;
-    echo `git commit -m "$commit"`;
+    echo exec("git add *");
+    echo exec("git commit -m \"$commit\"");
     echo PHP_EOL;
-    echo `git push`;
+    echo exec("git push");
+
+    if ($openPullRequest) {
+        gpr();
+    }
 }
 
 /**
@@ -182,13 +193,32 @@ function gb(string $branch, int $fromMaster = 1)
     if ($fromMaster == 1) {
         echo `git checkout master`;
         echo PHP_EOL;
-        echo `git checkout pull`;
+        echo `git pull`;
         echo PHP_EOL;
     }
 
     echo `git checkout -b $branch`;
     echo PHP_EOL;
     echo `git push -u origin $branch`;
+}
+
+/**
+ * Открывает ссылку на создание Pull Request на https://github.com для текущей в ветки
+ */
+function gpr()
+{
+    $repoUrl = exec("git config --get remote.origin.url");
+
+    if (!preg_match('/github.com/', $repoUrl)) {
+        echo 'Only Github repos are supported';
+        return false;
+    }
+
+    $branchName = exec("git symbolic-ref -q --short HEAD");
+    $repoUrl = preg_replace('/.git$/', '', $repoUrl);
+    $prUrl = "$repoUrl/compare/$branchName?expand=1";
+    exec("start $prUrl");
+    return true;
 }
 
 /**
