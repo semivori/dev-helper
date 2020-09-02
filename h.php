@@ -160,6 +160,19 @@ function gp(string $commit)
     $forceCommit = in_array('-f', $args);
     $openPullRequest = in_array('-pr', $args);
 
+    if ($commit == "" && isset($config['git']['default_commit'])) {
+        $defaultCommit = $config['git']['default_commit'];
+        if ($defaultCommit instanceof Closure) {
+            $branchName = exec("git symbolic-ref -q --short HEAD");
+            $commit = call_user_func($defaultCommit, $branchName);
+        } else if (is_string($defaultCommit)) {
+            $commit = $defaultCommit;
+        } else {
+            echo "['git']['default_commit'] must be string or Closure";
+            exit();
+        }
+    }
+
     if (!$forceCommit && isset($config['git']['commit_regex']) && !preg_match($config['git']['commit_regex'], $commit)) {
         echo 'Please enter commit message in the format: ' . $config['git']['commit_regex'];
         exit();
@@ -191,19 +204,67 @@ function gb(string $branch, int $fromMaster = 1)
     }
 
     if ($fromMaster == 1) {
-        echo `git checkout master`;
+        echo exec("git checkout master");
         echo PHP_EOL;
-        echo `git pull`;
+        echo exec("git pull");
         echo PHP_EOL;
     }
 
-    echo `git checkout -b $branch`;
+    echo exec("git checkout -b $branch");
     echo PHP_EOL;
-    echo `git push -u origin $branch`;
+    echo exec("git push -u origin $branch");
 }
 
 /**
- * Открывает ссылку на создание Pull Request на https://github.com для текущей в ветки
+ * Ищет ветку по шаблону и переключается в нее
+ * Если найдено несколько веток, то выводит все совпадения, и ожидает ввода более точного имени
+ * Если найдена только одна ветки, то переключается в нее
+ * Если $pattern - numeric, пытается перейти в ветку по шаблону "-$pattern-"
+ *
+ * @param  string  $pattern
+ * @return mixed
+ */
+function gcb(string $pattern)
+{
+    $branch = null;
+
+    if (is_numeric($pattern)) {
+        $pattern = "-$pattern-";
+    }
+
+    $branches = [];
+    exec("git branch --list *$pattern*", $branches);
+
+    if (!$branches) {
+        goto noMatchingBranch;
+    }
+
+    $branches = array_map(function ($branch) {
+        return trim($branch);
+    }, $branches);
+
+    if (count($branches) == 1) {
+        $branch = array_shift($branches);
+        goto checkout;
+    }
+
+    echo "Several branches are available: ", PHP_EOL, implode(PHP_EOL, $branches), PHP_EOL;
+    echo "Please enter more characters: ";
+    $pattern = stream_get_line(STDIN, 1024, PHP_EOL);
+    return gcb($pattern);
+
+    checkout:
+    if ($branch) {
+        echo exec("git checkout $branch");
+        echo exec("git pull");
+    }
+
+    noMatchingBranch:
+    echo 'No matching branch';
+}
+
+/**
+ * Открывает в браузере страницу на создание Pull Request на https://github.com для текущей в ветки
  */
 function gpr()
 {
@@ -219,6 +280,15 @@ function gpr()
     $prUrl = "$repoUrl/compare/$branchName?expand=1";
     exec("start $prUrl");
     return true;
+}
+
+/**
+ * Открывает страницу репозитория в браузере
+ */
+function gopen()
+{
+    $repoUrl = exec("git config --get remote.origin.url");
+    exec("start $repoUrl");
 }
 
 /**
