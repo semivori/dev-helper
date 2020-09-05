@@ -319,39 +319,6 @@ class Yii {
         global $yiiPath;
         return $this->baseExec("$yiiPath $command", $output);
     }
-
-    public function migrate(string $subCommand = null, $interactive = 0)
-    {
-        $subCommand = $subCommand ? "/$subCommand" : null;
-        $this->exec("migrate $subCommand --interactive=$interactive");
-    }
-
-    public function openMigration(string $name)
-    {
-        exec("start {$this->YII_FOLDER}/migrations/$name");
-    }
-
-    public function getLastMigration()
-    {
-        return array_pop(scandir("{$this->YII_FOLDER}/migrations"));
-    }
-
-    public function openLastMigration()
-    {
-        $fileName = $this->getLastMigration();
-        $this->openMigration($fileName);
-    }
-
-    /**
-     * Создает файл миграции и открывает его в редакторе кода, установленном по умолчанию
-     *
-     * @param string $name - имя миграции
-     */
-    public function createMigration(string $name)
-    {
-        $this->migrate("create $name");
-        $this->openLastMigration();
-    }
 }
 
 class YiiComponent
@@ -455,7 +422,7 @@ if (isset($argv[1])) {
     list($class, $method) = explode('/', $argv[1]);
 
     $instance = new $class($config);
-    $instance->$method($parameters);
+    $instance->$method(...$parameters);
 } else {
     $classes = array_filter(
         get_declared_classes(),
