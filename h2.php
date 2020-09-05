@@ -3,11 +3,13 @@
 
 $config = [];
 
+$configFileName = 'h2-config.php';
+
 /**
  * Импорт глобального конфига
  */
-if (file_exists(__DIR__.'/h-config.php')) {
-    $config = require __DIR__.'/h-config.php';
+if (file_exists(__DIR__ . DIRECTORY_SEPARATOR . $configFileName)) {
+    $config = require __DIR__ . DIRECTORY_SEPARATOR . $configFileName;
 }
 
 /**
@@ -18,8 +20,8 @@ $FOLDER = exec('echo %CD%');
 /**
  * Импорт локального конфига
  */
-if (file_exists($FOLDER.'/h-config.php')) {
-    $config = array_merge_recursive($config, require $FOLDER.'/h-config.php');
+if (file_exists($FOLDER . DIRECTORY_SEPARATOR . $configFileName)) {
+    $config = array_merge_recursive($config, require $FOLDER . DIRECTORY_SEPARATOR . $configFileName);
 }
 
 /**
@@ -31,6 +33,18 @@ $YII_FOLDER = $config['yii_folder'] ?? '.';
  * Путь к файлу yii
  */
 $yiiPath = "$YII_FOLDER/yii";
+
+/**
+ * Преобразует строку в UpperCamelCase
+ *
+ * @param string $input
+ * @param string|null $separator
+ * @return string|string[]
+ */
+function camelize(string $input, string $separator = '_')
+{
+    return str_replace($separator, '', ucwords($input, $separator));
+}
 
 trait Console
 {
@@ -68,7 +82,6 @@ trait Console
     }
 }
 
-
 class Git
 {
     use Console {
@@ -84,7 +97,7 @@ class Git
      */
     public function __construct(array $config = [])
     {
-        $this->config = $config;
+        $this->config = $config['git'] ?? [];
     }
 
     /**
@@ -270,11 +283,178 @@ class Git
     }
 }
 
+class Yii {
+    use Console {
+        exec as baseExec;
+    }
+
+    protected $YII_FOLDER;
+
+    /** @var array */
+    private $config = [];
+
+    /**
+     * Yii constructor.
+     * @param string $YII_FOLDER
+     * @param array $config
+     */
+    public function __construct(string $YII_FOLDER, array $config = [])
+    {
+        $this->config = $config;
+        $this->YII_FOLDER = $YII_FOLDER;
+    }
+
+    public function getFolder()
+    {
+        return $this->YII_FOLDER;
+    }
+
+    /**
+     * @param  string  $command
+     * @param  null  $output
+     * @return string
+     */
+    public function exec(string $command, &$output = null)
+    {
+        global $yiiPath;
+        return $this->baseExec("$yiiPath $command", $output);
+    }
+
+    public function migrate(string $subCommand = null, $interactive = 0)
+    {
+        $subCommand = $subCommand ? "/$subCommand" : null;
+        $this->exec("migrate $subCommand --interactive=$interactive");
+    }
+
+    public function openMigration(string $name)
+    {
+        exec("start {$this->YII_FOLDER}/migrations/$name");
+    }
+
+    public function getLastMigration()
+    {
+        return array_pop(scandir("{$this->YII_FOLDER}/migrations"));
+    }
+
+    public function openLastMigration()
+    {
+        $fileName = $this->getLastMigration();
+        $this->openMigration($fileName);
+    }
+
+    /**
+     * Создает файл миграции и открывает его в редакторе кода, установленном по умолчанию
+     *
+     * @param string $name - имя миграции
+     */
+    public function createMigration(string $name)
+    {
+        $this->migrate("create $name");
+        $this->openLastMigration();
+    }
+}
+
+class YiiComponent
+{
+    /** @var array */
+    protected $config = [];
+
+    /** @var Yii */
+    protected $yii;
+
+    /**
+     * Gii constructor.
+     *
+     * @param array $globalConfig
+     */
+    public function __construct(array $globalConfig = [])
+    {
+        global $YII_FOLDER;
+        $this->yii = new Yii($YII_FOLDER, $globalConfig);
+        $this->config = $globalConfig;
+    }
+}
+
+class Migrate extends YiiComponent
+{
+    public function exec(string $subCommand = null, $interactive = 0)
+    {
+        $subCommand = $subCommand ? "/$subCommand" : null;
+        $this->yii->exec("migrate $subCommand --interactive=$interactive");
+    }
+
+    public function open(string $name)
+    {
+        exec("start {$this->yii->getFolder()}/migrations/$name");
+    }
+
+    public function getLast()
+    {
+        return array_pop(scandir("{$this->yii->getFolder()}/migrations"));
+    }
+
+    public function openLast()
+    {
+        $fileName = $this->getLast();
+        $this->open($fileName);
+    }
+
+    /**
+     * Создает файл миграции и открывает его в редакторе кода, установленном по умолчанию
+     *
+     * @param string $name - имя миграции
+     */
+    public function create(string $name)
+    {
+        $this->exec("create $name");
+        $this->openLast();
+    }
+}
+
+class Gii extends YiiComponent
+{
+    /**
+     * @param  string  $command
+     * @param  null  $output
+     * @return string
+     */
+    public function exec(string $command, &$output = null)
+    {
+        return $this->yii->exec("gii $command", $output);
+    }
+
+    /**
+     * Генерирует \yii\db\ActiveRecord модель
+     * В случае отсутсвия параметра $class будет использоваться имя таблицы в UpperCamelCase
+     * Namespace допускает использование обыного и бротного слэшей
+     *
+     * @param string $table - имя таблицы БД
+     * @param string|null $class - имя и namespace класса, н-р app/models/User/User
+     */
+    function generateModel(string $table, string $class = null)
+    {
+        $ns = $this->config['model']['ns'] ?? null;
+        $class = preg_replace('#/#', '\\', $class ?: camelize($table));
+
+        if (strpos($class, '\\')) {
+            $ns = substr($class, 0, strrpos($class, '\\'));
+            $class = substr($class, strrpos($class, '\\') + 1);
+        }
+
+        $command = "gii/model --tableName=$table --modelClass=$class";
+        if ($ns) {
+            $command .= " --ns=$ns";
+        }
+
+        yii("$command --interactive=0");
+    }
+}
+
 if (isset($argv[1])) {
     $parameters = array_slice($argv, 2);
     list($class, $method) = explode('/', $argv[1]);
 
-    $instance = new $class();
+    $instance = new $class($config);
     $instance->$method($parameters);
 } else {
     $classes = array_filter(
