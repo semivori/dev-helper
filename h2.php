@@ -21,7 +21,7 @@ $FOLDER = exec('echo %CD%');
  * Импорт локального конфига
  */
 if (file_exists($FOLDER . DIRECTORY_SEPARATOR . $configFileName)) {
-    $config = array_merge_recursive($config, require $FOLDER . DIRECTORY_SEPARATOR . $configFileName);
+    $config = array_merge($config, require $FOLDER . DIRECTORY_SEPARATOR . $configFileName);
 }
 
 /**
@@ -33,6 +33,55 @@ $YII_FOLDER = $config['yii_folder'] ?? '.';
  * Путь к файлу yii
  */
 $yiiPath = "$YII_FOLDER/yii";
+
+function main($argv, $config = [])
+{
+    if (isset($argv[1])) {
+        $parameters = array_slice($argv, 2);
+
+        $route = $argv[1];
+        if (isset($config['aliases'][$route])) {
+            $route = $config['aliases'][$route];
+        }
+
+        list($class, $method) = explode('/', $route);
+
+        $instance = new $class($config);
+        $instance->$method(...$parameters);
+    } else {
+        $classes = array_filter(
+            get_declared_classes(),
+            function ($className) {
+                return !call_user_func(
+                    array(new ReflectionClass($className), 'isInternal')
+                );
+            }
+        );
+
+        foreach ($classes as $class) {
+            if (in_array($class, ['Yii', 'YiiComponent'])) continue;
+
+            echo $class, PHP_EOL;
+
+            $instance = new $class($config);
+
+            if (method_exists($instance, 'help')) {
+                printHelp($instance->help());
+                echo PHP_EOL;
+            }
+        }
+    }
+}
+
+function printHelp(array $data)
+{
+    foreach ($data as $key => $datum) {
+        echo "\t", $key, PHP_EOL;
+        foreach ($datum as $row) {
+            echo "\t\t", $row, PHP_EOL;
+        }
+    }
+}
 
 /**
  * Преобразует строку в UpperCamelCase
@@ -398,7 +447,7 @@ class Gii extends YiiComponent
      * @param string $table - имя таблицы БД
      * @param string|null $class - имя и namespace класса, н-р app/models/User/User
      */
-    function generateModel(string $table, string $class = null)
+    function model(string $table, string $class = null)
     {
         $ns = $this->config['model']['ns'] ?? null;
         $class = preg_replace('#/#', '\\', $class ?: camelize($table));
@@ -417,23 +466,4 @@ class Gii extends YiiComponent
     }
 }
 
-if (isset($argv[1])) {
-    $parameters = array_slice($argv, 2);
-    list($class, $method) = explode('/', $argv[1]);
-
-    $instance = new $class($config);
-    $instance->$method(...$parameters);
-} else {
-    $classes = array_filter(
-        get_declared_classes(),
-        function ($className) {
-            return !call_user_func(
-                array(new ReflectionClass($className), 'isInternal')
-            );
-        }
-    );
-
-    foreach ($classes as $class) {
-        echo $class, PHP_EOL;
-    }
-}
+main($argv, $config);
