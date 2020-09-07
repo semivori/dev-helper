@@ -27,12 +27,12 @@ if (file_exists($FOLDER . DIRECTORY_SEPARATOR . $configFileName)) {
 /**
  * Папка c файлом yii
  */
-$YII_FOLDER = $config['yii_folder'] ?? '.';
+$YII_FOLDER = $config['yii_folder'] ?? '';
 
 /**
  * Путь к файлу yii
  */
-$yiiPath = "$YII_FOLDER/yii";
+$YII_PATH = normalizeFilePath($FOLDER . DIRECTORY_SEPARATOR . "$YII_FOLDER/yii");
 
 function main($argv, $config = [])
 {
@@ -49,6 +49,17 @@ function main($argv, $config = [])
         $instance = new $class($config);
         $instance->$method(...$parameters);
     } else {
+        if (isset($config['aliases'])) {
+            echo 'Aliases:', PHP_EOL;
+
+            foreach ($config['aliases'] as $key => $value) {
+                if ($value) {
+                    echo "\t$key:\t$value";
+                }
+                echo PHP_EOL;
+            }
+        }
+
         $classes = array_filter(
             get_declared_classes(),
             function ($className) {
@@ -58,16 +69,21 @@ function main($argv, $config = [])
             }
         );
 
+        if ($classes) {
+            echo 'Classes: ', PHP_EOL;
+        }
+
         foreach ($classes as $class) {
             if (in_array($class, ['Yii', 'YiiComponent'])) continue;
 
-            echo $class, PHP_EOL;
+            echo "\t$class", PHP_EOL;
+            if (false) {
+                $instance = new $class($config);
 
-            $instance = new $class($config);
-
-            if (method_exists($instance, 'help')) {
-                printHelp($instance->help());
-                echo PHP_EOL;
+                if (method_exists($instance, 'help')) {
+                    printHelp($instance->help());
+                    echo PHP_EOL;
+                }
             }
         }
     }
@@ -95,6 +111,13 @@ function camelize(string $input, string $separator = '_')
     return str_replace($separator, '', ucwords($input, $separator));
 }
 
+function normalizeFilePath(string $path) {
+    $wrongSlash = DIRECTORY_SEPARATOR == '/' ? '\\' : '/';
+    $path = str_replace($wrongSlash, DIRECTORY_SEPARATOR, $path);
+    $path = str_replace(DIRECTORY_SEPARATOR.DIRECTORY_SEPARATOR, DIRECTORY_SEPARATOR, $path);
+    return $path;
+}
+
 trait Console
 {
     /** @var string */
@@ -103,9 +126,9 @@ trait Console
     /**
      * @param  string  $command
      * @param  null  $output
-     * @return string
+     * @return string|array|null
      */
-    public function exec(string $command, &$output = null)
+    public function consExec(string $command, &$output = null)
     {
         $output = $output ?: $this->output;
         exec($command, $output);
@@ -118,7 +141,14 @@ trait Console
     public function write(...$outputs)
     {
         foreach ($outputs as $output) {
-            echo $output;
+            if (is_array($output)) {
+                $this->write(...$output);
+            } else {
+                echo $output;
+                if (count($outputs) > 1) {
+                    $this->newLine();
+                }
+            }
         }
     }
 
@@ -133,9 +163,7 @@ trait Console
 
 class Git
 {
-    use Console {
-        exec as baseExec;
-    }
+    use Console;
 
     /** @var array */
     private $config = [];
@@ -156,7 +184,11 @@ class Git
      */
     public function exec(string $command, &$output = null)
     {
-        return $this->baseExec("git $command", $output);
+        $res = $this->consExec("git $command", $output);
+        if (count($res) == 1) {
+            return  array_shift($res);
+        }
+        return $res;
     }
 
     /**
@@ -220,7 +252,7 @@ class Git
         $branchName = $this->exec("symbolic-ref -q --short HEAD");
         $repoUrl = preg_replace('/.git$/', '', $repoUrl);
         $prUrl = "$repoUrl/compare/$branchName?expand=1";
-        $this->baseExec("start $prUrl");
+        $this->consExec("start $prUrl");
         return true;
     }
 
@@ -307,7 +339,7 @@ class Git
     function open()
     {
         $repoUrl = $this->exec("config --get remote.origin.url");
-        $this->baseExec("start $repoUrl");
+        $this->consExec("start $repoUrl");
     }
 
     /**
@@ -333,29 +365,33 @@ class Git
 }
 
 class Yii {
-    use Console {
-        exec as baseExec;
-    }
+    use Console;
 
-    protected $YII_FOLDER;
+    /** @var string */
+    protected $YII_PATH;
 
     /** @var array */
     private $config = [];
 
     /**
      * Yii constructor.
-     * @param string $YII_FOLDER
+     * @param string $YII_PATH
      * @param array $config
      */
-    public function __construct(string $YII_FOLDER, array $config = [])
+    public function __construct(string $YII_PATH, array $config = [])
     {
         $this->config = $config;
-        $this->YII_FOLDER = $YII_FOLDER;
+        $this->YII_PATH = $YII_PATH;
     }
 
     public function getFolder()
     {
-        return $this->YII_FOLDER;
+        return str_replace('yii', '', $this->getPath());
+    }
+
+    public function getPath()
+    {
+        return $this->YII_PATH;
     }
 
     /**
@@ -365,13 +401,14 @@ class Yii {
      */
     public function exec(string $command, &$output = null)
     {
-        global $yiiPath;
-        return $this->baseExec("$yiiPath $command", $output);
+        return $this->consExec("{$this->getPath()} $command", $output);
     }
 }
 
 class YiiComponent
 {
+    use Console;
+
     /** @var array */
     protected $config = [];
 
@@ -385,8 +422,9 @@ class YiiComponent
      */
     public function __construct(array $globalConfig = [])
     {
-        global $YII_FOLDER;
-        $this->yii = new Yii($YII_FOLDER, $globalConfig);
+        global $YII_PATH;
+
+        $this->yii = new Yii($YII_PATH, $globalConfig);
         $this->config = $globalConfig;
     }
 }
@@ -396,17 +434,28 @@ class Migrate extends YiiComponent
     public function exec(string $subCommand = null, $interactive = 0)
     {
         $subCommand = $subCommand ? "/$subCommand" : null;
-        $this->yii->exec("migrate $subCommand --interactive=$interactive");
+        return $this->yii->exec("migrate$subCommand --interactive=$interactive");
+    }
+
+    public function apply()
+    {
+        $this->write($this->exec());
+    }
+
+    public function getPath()
+    {
+        return $this->yii->getFolder() . DIRECTORY_SEPARATOR . 'migrations';
     }
 
     public function open(string $name)
     {
-        exec("start {$this->yii->getFolder()}/migrations/$name");
+        exec("start {$this->getPath()}/$name");
     }
 
     public function getLast()
     {
-        return array_pop(scandir("{$this->yii->getFolder()}/migrations"));
+        $items = scandir($this->getPath());
+        return array_pop($items);
     }
 
     public function openLast()
@@ -422,7 +471,7 @@ class Migrate extends YiiComponent
      */
     public function create(string $name)
     {
-        $this->exec("create $name");
+        $this->write($this->exec("create $name"));
         $this->openLast();
     }
 }

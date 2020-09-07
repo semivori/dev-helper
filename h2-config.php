@@ -12,10 +12,10 @@ $example = [
         }
     ],
     'model' => [
-        'ns' => './models',
+        'ns' => '/app/models',
     ],
     'php' => 'php',
-    'yii_folder' => './app',
+    'yii_folder' => '/app',
 ];
 
 return [
@@ -25,10 +25,23 @@ return [
         'gh' => 'git/help',
         'go' => 'git/open',
         'gp' => 'git/pushAll',
-
+        'gpr' => 'git/pullRequest',
+        null,
         'gim' => 'gii/model',
-
-        'm' => 'migrate/exec',
+        null,
+        'm' => 'migrate/apply',
         'mc' => 'migrate/create',
     ],
+    'git' => [
+        'branch_regex' => '/^(f|b)-(\d+)-(.+)/',
+        'commit_regex' => '/^(\d+)( |-|_)(.+)/',
+        'default_commit' => function ($branchName) {
+            return preg_replace('/^.-/', '', $branchName);
+        }
+    ],
+    'model' => [
+        'ns' => '/app/models',
+    ],
+    'php' => 'php',
+    'yii_folder' => '/app',
 ];
