@@ -319,7 +319,17 @@ class Git
         $this->write("Several branches are available: ", PHP_EOL, implode(PHP_EOL, $branches), PHP_EOL);
         $this->write("Please enter more characters: ");
         $pattern = stream_get_line(STDIN, 1024, PHP_EOL);
-        return gcb($pattern);
+
+        $fullMatch = array_filter($branches, function ($branch) use ($pattern){
+            return $branch == $pattern;
+        });
+
+        if ($fullMatch) {
+            $branch = array_shift($fullMatch);
+            goto checkout;
+        }
+
+        $this->checkoutPattern($pattern);
 
         checkout:
         if ($branch) {
@@ -512,6 +522,15 @@ class Gii extends YiiComponent
         }
 
         yii("$command --interactive=0");
+    }
+}
+
+class Helper {
+    use Console;
+
+    public function resetPasswords(string $db = 'erp', $pass = '$2y$13$e4msSNe509BHXoNmFJHqG.5WqNa4dnncrx6EQFukBUMr/.tEpXxxu')
+    {
+        $this->write($this->consExec("mysql --user=root --password=root -D {$db} -e \"UPDATE user SET `password` = '{$pass}'\""));
     }
 }
 
