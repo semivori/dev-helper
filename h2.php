@@ -343,6 +343,24 @@ class Git
         return false;
     }
 
+    public function listBranches(string $pattern = null)
+    {
+        if (is_numeric($pattern)) {
+            $pattern = "-$pattern-";
+        }
+
+        $branches = [];
+        $this->exec("branch --list *$pattern*", $branches);
+
+        if (!$branches) {
+            echo 'No matching branch';
+            return false;
+        }
+
+        $this->write(implode(PHP_EOL, $branches), PHP_EOL);
+        return true;
+    }
+
     /**
      * Открывает страницу репозитория в браузере
      */
