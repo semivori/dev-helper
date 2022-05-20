@@ -8,8 +8,8 @@ $configFileName = 'h2-config.php';
 /**
  * Импорт глобального конфига
  */
-if (file_exists(__DIR__ . DIRECTORY_SEPARATOR . $configFileName)) {
-    $config = require __DIR__ . DIRECTORY_SEPARATOR . $configFileName;
+if (file_exists(__DIR__.DIRECTORY_SEPARATOR.$configFileName)) {
+    $config = require __DIR__.DIRECTORY_SEPARATOR.$configFileName;
 }
 
 /**
@@ -20,8 +20,8 @@ $FOLDER = exec('echo %CD%');
 /**
  * Импорт локального конфига
  */
-if (file_exists($FOLDER . DIRECTORY_SEPARATOR . $configFileName)) {
-    $config = array_merge($config, require $FOLDER . DIRECTORY_SEPARATOR . $configFileName);
+if (file_exists($FOLDER.DIRECTORY_SEPARATOR.$configFileName)) {
+    $config = array_merge($config, require $FOLDER.DIRECTORY_SEPARATOR.$configFileName);
 }
 
 /**
@@ -32,7 +32,7 @@ $YII_FOLDER = $config['yii_folder'] ?? '';
 /**
  * Путь к файлу yii
  */
-$YII_PATH = normalizeFilePath($FOLDER . DIRECTORY_SEPARATOR . "$YII_FOLDER/yii");
+$YII_PATH = normalizeFilePath($FOLDER.DIRECTORY_SEPARATOR."$YII_FOLDER/yii");
 
 function main($argv, $config = [])
 {
@@ -74,7 +74,9 @@ function main($argv, $config = [])
         }
 
         foreach ($classes as $class) {
-            if (in_array($class, ['Yii', 'YiiComponent'])) continue;
+            if (in_array($class, ['Yii', 'YiiComponent'])) {
+                continue;
+            }
 
             echo "\t$class", PHP_EOL;
             if (false) {
@@ -102,8 +104,8 @@ function printHelp(array $data)
 /**
  * Преобразует строку в UpperCamelCase
  *
- * @param string $input
- * @param string|null $separator
+ * @param  string  $input
+ * @param  string|null  $separator
  * @return string|string[]
  */
 function camelize(string $input, string $separator = '_')
@@ -111,10 +113,12 @@ function camelize(string $input, string $separator = '_')
     return str_replace($separator, '', ucwords($input, $separator));
 }
 
-function normalizeFilePath(string $path) {
+function normalizeFilePath(string $path)
+{
     $wrongSlash = DIRECTORY_SEPARATOR == '/' ? '\\' : '/';
     $path = str_replace($wrongSlash, DIRECTORY_SEPARATOR, $path);
     $path = str_replace(DIRECTORY_SEPARATOR.DIRECTORY_SEPARATOR, DIRECTORY_SEPARATOR, $path);
+
     return $path;
 }
 
@@ -132,6 +136,7 @@ trait Console
     {
         $output = $output ?: $this->output;
         exec($command, $output);
+
         return $output;
     }
 
@@ -186,9 +191,23 @@ class Git
     {
         $res = $this->consExec("git $command", $output);
         if (count($res) == 1) {
-            return  array_shift($res);
+            return array_shift($res);
         }
+
         return $res;
+    }
+
+    public function plus()
+    {
+        $args = func_get_args();
+        call_user_func_array(
+            [$this, 'pushAll'],
+            array_merge(
+                ['commit' => ''],
+                $args
+            )
+        );
+        $this->pullRequest();
     }
 
     /**
@@ -221,8 +240,11 @@ class Git
             }
         }
 
-        if (!$forceCommit && isset($this->config['commit_regex']) && !preg_match($this->config['commit_regex'],
-                $commit)) {
+        if (
+            !$forceCommit
+            && isset($this->config['commit_regex'])
+            && !preg_match($this->config['commit_regex'], $commit)
+        ) {
             $this->write('Please enter commit message in the format: ', $this->config['commit_regex']);
             exit();
         }
@@ -246,6 +268,7 @@ class Git
 
         if (!preg_match('/github.com/', $repoUrl)) {
             echo 'Only Github repos are supported';
+
             return false;
         }
 
@@ -253,6 +276,7 @@ class Git
         $repoUrl = preg_replace('/.git$/', '', $repoUrl);
         $prUrl = "$repoUrl/compare/$branchName?expand=1";
         $this->consExec("start $prUrl");
+
         return true;
     }
 
@@ -307,9 +331,12 @@ class Git
             goto noMatchingBranch;
         }
 
-        $branches = array_map(function ($branch) {
-            return trim($branch);
-        }, $branches);
+        $branches = array_map(
+            function ($branch) {
+                return trim($branch);
+            },
+            $branches
+        );
 
         if (count($branches) == 1) {
             $branch = array_shift($branches);
@@ -320,9 +347,12 @@ class Git
         $this->write("Please enter more characters: ");
         $pattern = stream_get_line(STDIN, 1024, PHP_EOL);
 
-        $fullMatch = array_filter($branches, function ($branch) use ($pattern){
-            return $branch == $pattern;
-        });
+        $fullMatch = array_filter(
+            $branches,
+            function ($branch) use ($pattern) {
+                return $branch == $pattern;
+            }
+        );
 
         if ($fullMatch) {
             $branch = array_shift($fullMatch);
@@ -335,11 +365,13 @@ class Git
         if ($branch) {
             $this->write($this->exec("checkout $branch"));
             $this->write($this->exec("pull"));
+
             return true;
         }
 
         noMatchingBranch:
         echo 'No matching branch';
+
         return false;
     }
 
@@ -354,10 +386,12 @@ class Git
 
         if (!$branches) {
             echo 'No matching branch';
+
             return false;
         }
 
         $this->write(implode(PHP_EOL, $branches), PHP_EOL);
+
         return true;
     }
 
@@ -386,13 +420,14 @@ class Git
                 "Флаги: ",
                 "-f => форсированный коммит, имя коммита не будет проверятся",
                 "-pr => открывает страницу создания Pull Request @see gpr()",
-                "@param string \$commit - сообщение коммита"
-            ]
+                "@param string \$commit - сообщение коммита",
+            ],
         ];
     }
 }
 
-class Yii {
+class Yii
+{
     use Console;
 
     /** @var string */
@@ -403,8 +438,8 @@ class Yii {
 
     /**
      * Yii constructor.
-     * @param string $YII_PATH
-     * @param array $config
+     * @param  string  $YII_PATH
+     * @param  array  $config
      */
     public function __construct(string $YII_PATH, array $config = [])
     {
@@ -446,7 +481,7 @@ class YiiComponent
     /**
      * Gii constructor.
      *
-     * @param array $globalConfig
+     * @param  array  $globalConfig
      */
     public function __construct(array $globalConfig = [])
     {
@@ -462,6 +497,7 @@ class Migrate extends YiiComponent
     public function exec(string $subCommand = null, $interactive = 0)
     {
         $subCommand = $subCommand ? "/$subCommand" : null;
+
         return $this->yii->exec("migrate$subCommand --interactive=$interactive");
     }
 
@@ -472,7 +508,7 @@ class Migrate extends YiiComponent
 
     public function getPath()
     {
-        return $this->yii->getFolder() . DIRECTORY_SEPARATOR . 'migrations';
+        return $this->yii->getFolder().DIRECTORY_SEPARATOR.'migrations';
     }
 
     public function open(string $name)
@@ -483,6 +519,7 @@ class Migrate extends YiiComponent
     public function getLast()
     {
         $items = scandir($this->getPath());
+
         return array_pop($items);
     }
 
@@ -495,7 +532,7 @@ class Migrate extends YiiComponent
     /**
      * Создает файл миграции и открывает его в редакторе кода, установленном по умолчанию
      *
-     * @param string $name - имя миграции
+     * @param  string  $name  - имя миграции
      */
     public function create(string $name)
     {
@@ -521,8 +558,8 @@ class Gii extends YiiComponent
      * В случае отсутсвия параметра $class будет использоваться имя таблицы в UpperCamelCase
      * Namespace допускает использование обыного и бротного слэшей
      *
-     * @param string $table - имя таблицы БД
-     * @param string|null $class - имя и namespace класса, н-р app/models/User/User
+     * @param  string  $table  - имя таблицы БД
+     * @param  string|null  $class  - имя и namespace класса, н-р app/models/User/User
      */
     function model(string $table, string $class = null)
     {
@@ -543,12 +580,17 @@ class Gii extends YiiComponent
     }
 }
 
-class Helper {
+class Helper
+{
     use Console;
 
-    public function resetPasswords(string $db = 'erp', $pass = '$2y$13$e4msSNe509BHXoNmFJHqG.5WqNa4dnncrx6EQFukBUMr/.tEpXxxu')
-    {
-        $this->write($this->consExec("mysql --user=root --password=root -D {$db} -e \"UPDATE user SET `password` = '{$pass}'\""));
+    public function resetPasswords(
+        string $db = 'erp',
+        $pass = '$2y$13$e4msSNe509BHXoNmFJHqG.5WqNa4dnncrx6EQFukBUMr/.tEpXxxu'
+    ) {
+        $this->write(
+            $this->consExec("mysql --user=root --password=root -D {$db} -e \"UPDATE user SET `password` = '{$pass}'\"")
+        );
     }
 }
 

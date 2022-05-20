@@ -27,11 +27,13 @@ return [
         'gp' => 'git/pushAll',
         'gpr' => 'git/pullRequest',
         'gl' => 'git/listBranches',
+        '+' => 'git/plus',
         null,
         'gim' => 'gii/model',
         null,
         'm' => 'migrate/apply',
         'mc' => 'migrate/create',
+        'ml' => 'migrate/openLast',
         null,
         'rp' => 'helper/resetPasswords'
     ],
