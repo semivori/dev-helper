@@ -219,7 +219,7 @@ class Git
      * @see gpr()
      *
      */
-    public function pushAll(string $commit)
+    public function pushAll(string $commit = '')
     {
         $args = func_get_args();
         $forceCommit = in_array('-f', $args);
