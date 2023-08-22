@@ -210,29 +210,19 @@ class Git
         $this->pullRequest();
     }
 
-    /**
-     * Добавляет все файлы в гит и пушит их
-     *
-     * Флаги:
-     * -f => форсированный коммит, имя коммита не будет проверятся
-     * -pr => открывает страницу создания Pull Request @param  string  $commit  - сообщение коммита
-     * @see gpr()
-     *
-     */
-    public function pushAll(string $commit = '')
+    public function commit(string $commitName = '')
     {
         $args = func_get_args();
         $forceCommit = in_array('-f', $args);
-        $openPullRequest = in_array('-pr', $args);
 
-        if ($commit == "" && isset($this->config['default_commit'])) {
+        if ($commitName == "" && isset($this->config['default_commit'])) {
             $defaultCommit = $this->config['default_commit'];
             if ($defaultCommit instanceof Closure) {
                 $branchName = exec("git symbolic-ref -q --short HEAD");
-                $commit = call_user_func($defaultCommit, $branchName);
+                $commitName = call_user_func($defaultCommit, $branchName);
             } else {
                 if (is_string($defaultCommit)) {
-                    $commit = $defaultCommit;
+                    $commitName = $defaultCommit;
                 } else {
                     $this->write("config ['default_commit'] must be string or Closure");
                     exit();
@@ -243,14 +233,31 @@ class Git
         if (
             !$forceCommit
             && isset($this->config['commit_regex'])
-            && !preg_match($this->config['commit_regex'], $commit)
+            && !preg_match($this->config['commit_regex'], $commitName)
         ) {
             $this->write('Please enter commit message in the format: ', $this->config['commit_regex']);
             exit();
         }
 
         $this->write($this->exec("add *"));
-        $this->write($this->exec("commit -m \"$commit\""));
+        $this->write($this->exec("commit -m \"$commitName\""));
+    }
+
+    /**
+     * Добавляет все файлы в гит и пушит их
+     *
+     * Флаги:
+     * -f => форсированный коммит, имя коммита не будет проверятся
+     * -pr => открывает страницу создания Pull Request @param  string  $commitName  - сообщение коммита
+     * @see gpr()
+     *
+     */
+    public function pushAll(string $commitName = '')
+    {
+        $args = func_get_args();
+        $openPullRequest = in_array('-pr', $args);
+
+        $this->commit($commitName);
         $this->newLine();
         $this->write($this->exec("push"));
 

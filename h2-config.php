@@ -28,6 +28,8 @@ return [
         'gpr' => 'git/pullRequest',
         'gl' => 'git/listBranches',
         '+' => 'git/plus',
+        'gk' => 'gei/commit',
+        'gcm' => 'gei/commit',
         null,
         'gim' => 'gii/model',
         null,
