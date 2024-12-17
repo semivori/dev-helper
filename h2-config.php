@@ -37,7 +37,11 @@ return [
         'mc' => 'migrate/create',
         'ml' => 'migrate/openLast',
         null,
-        'rp' => 'helper/resetPasswords'
+        'rp' => 'helper/resetPasswords',
+        null,
+        '18i' => 'i18n/importFromFile',
+        '18m' => 'i18n/migrate',
+        '18mc' => 'i18n/createMigration',
     ],
     'git' => [
         'branch_regex' => '/^(f|b)-(\d+)-(.+)/',

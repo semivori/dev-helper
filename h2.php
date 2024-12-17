@@ -501,6 +501,8 @@ class YiiComponent
 
 class Migrate extends YiiComponent
 {
+    public $folder = 'migrations';
+
     public function exec(string $subCommand = null, $interactive = 0)
     {
         $subCommand = $subCommand ? "/$subCommand" : null;
@@ -515,7 +517,7 @@ class Migrate extends YiiComponent
 
     public function getPath()
     {
-        return $this->yii->getFolder().DIRECTORY_SEPARATOR.'migrations';
+        return $this->yii->getFolder().DIRECTORY_SEPARATOR.$this->folder;
     }
 
     public function open(string $name)
@@ -543,8 +545,31 @@ class Migrate extends YiiComponent
      */
     public function create(string $name)
     {
-        $this->write($this->exec("create $name"));
+        $this->write($this->exec("create $name --migrationPath={$this->getPath()}"));
         $this->openLast();
+    }
+}
+
+class i18n extends YiiComponent
+{
+    public function exec(string $action, &$output = null)
+    {
+        return $this->yii->exec("messages-migration/$action", $output);
+    }
+
+    public function importFromFile()
+    {
+        $this->write($this->exec('import-from-file'));
+    }
+
+    public function migrate()
+    {
+        $this->write($this->yii->exec('migrate --migrationPath=@app/i18n-migrations --interactive=0'));
+    }
+
+    public function createMigration()
+    {
+        $this->write($this->exec('create'));
     }
 }
 
