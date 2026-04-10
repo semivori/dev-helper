@@ -41,13 +41,14 @@ return [
         null,
         '18i' => 'i18n/importFromFile',
         '18m' => 'i18n/migrate',
+        '18rm' => 'i18n/reMigrate',
         '18mc' => 'i18n/createMigration',
     ],
     'git' => [
-        'branch_regex' => '/^(f|b)-(\d+)-(.+)/',
+        'branch_regex' => '/^(\d+)-(.+)/',
         'commit_regex' => '/^(\d+)( |-|_)(.+)/',
         'default_commit' => function ($branchName) {
-            return preg_replace('/^.-/', '', $branchName);
+            return $branchName;
         }
     ],
     'model' => [

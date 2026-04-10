@@ -200,13 +200,10 @@ class Git
     public function plus()
     {
         $args = func_get_args();
-        call_user_func_array(
-            [$this, 'pushAll'],
-            array_merge(
-                ['commit' => ''],
-                $args
-            )
-        );
+        if (count($args) === 0) {
+            $args = [''];
+        }
+        call_user_func_array([$this, 'pushAll'], $args);
         $this->pullRequest();
     }
 
@@ -522,7 +519,9 @@ class Migrate extends YiiComponent
 
     public function open(string $name)
     {
-        exec("start {$this->getPath()}/$name");
+        $filePath = normalizeFilePath("{$this->getPath()}/$name");
+        // $command = exec("where cursor") ? "cursor" : "code";
+        // exec("$command -r \"$filePath\"");
     }
 
     public function getLast()
@@ -565,6 +564,11 @@ class i18n extends YiiComponent
     public function migrate()
     {
         $this->write($this->yii->exec('migrate --migrationPath=@app/i18n-migrations --interactive=0'));
+    }
+
+    public function reMigrate()
+    {
+        $this->write($this->yii->exec('migrate/redo --migrationPath=@app/i18n-migrations --interactive=0'));
     }
 
     public function createMigration()
